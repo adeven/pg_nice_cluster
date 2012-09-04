@@ -3,8 +3,11 @@ this is a little tool to help you use the CLUSTER command of postgres while main
 
 ## installation
 in your Gemfile add
+
     gem 'pg_nice_cluster', :git => 'git://github.com/adeven/pg_nice_cluster.git'
+    
 then
+
     bundle install
 
 ## usage

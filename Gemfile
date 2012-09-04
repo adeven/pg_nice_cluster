@@ -1,4 +1,4 @@
 source 'https://rubygems.org'
 
-gem 'pg'
-gem 'trollop'
+# Specify your gem's dependencies in pg_nice_cluster.gemspec
+gemspec
