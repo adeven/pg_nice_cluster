@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
-require File.expand_path('../lib/pg_nice_cluster/version', __FILE__)
+$:.push File.expand_path("../lib", __FILE__)
+require "pg_nice_cluster/version"
 
 Gem::Specification.new do |gem|
   gem.authors       = ["Paul H. Müller"]
