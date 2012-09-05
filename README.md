@@ -14,13 +14,15 @@ then
     pg_nice_cluster --help
 
     Options:
-        --db, -d <s>:   database name
-        --user, -u <s>:   user name (default: postgres)
-        --pass, -p <s>:   password
-        --host, -h <s>:   host name (default: localhost)
-        --tmp-prefix, -t <s>:   prefix for the temporary tables and indexes (default 'cluster') (default: cluster)
-        --min-size, -m <i>:   cut off size for small tables in mb (default: 100)
-        --help, -e:   Show this message
+         --db,      -d <s>:   database name
+         --user,    -u <s>:   user name (default: postgres)
+         --pass,    -p <s>:   password
+         --host,    -h <s>:   host name (default: localhost)
+         --prefix,  -r <s>:   prefix for the temporary tables and indexes (default 'cluster_') (default: cluster)
+         --minsize, -m <i>:   cut off size for small tables in mb (default: 100)
+         --table,   -t <s>:   table name if only one table should be clustered
+         --index,   -i <s>:   index to cluster on when using single table (otherwise ignored)
+         --help,    -e:   Show this message
 
 ## requirements
 * tables will be EXCLUSIVE locked for the operation
