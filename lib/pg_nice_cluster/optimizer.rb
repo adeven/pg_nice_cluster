@@ -12,8 +12,10 @@ module PgNiceCluster
                 opt :user, "user name", :type => :string, :default => "postgres"
                 opt :pass, "password", :type => :string
                 opt :host, "host name", :type => :string, :default => "localhost"
-                opt :tmp_prefix, "prefix for the temporary tables and indexes (default 'cluster')", :type => :string, :default => "cluster"
+                opt :tmp_prefix, "prefix for the temporary tables and indexes (default 'cluster_')", :type => :string, :default => "cluster"
                 opt :min_size, "cut off size for small tables in mb", :default => 100
+                opt :table, "table name if only one table should be clustered", :type => :string
+                opt :index, "index to cluster on when using single table (otherwise ignored)", :type => :string
             end
             Trollop::die :db, "database name must be given" if @opts[:db] == nil
 
@@ -32,7 +34,12 @@ module PgNiceCluster
             o.filter_tables_with_lower_limit_and_update_total_size
             puts "#{o.tables.size} of them are bigger than #{o.lower_limit/(1024*1024)} MB including indexes..."
             puts "The Database has a Total Size of #{o.total_size/(1024*1024)} MB..."
-           
+            
+            if o.tables.size == 0
+                "nothing todo: exiting..."
+                break
+            end
+
             o.cluster_tables
             puts "Finished clustering Database #{o.opts[:db]}"
 
@@ -45,9 +52,13 @@ module PgNiceCluster
 
         def get_all_tables
             @tables = []
-            @conn.exec( "select relname from pg_stat_user_tables WHERE schemaname='public'" ) do |result|
-                result.each do |row|
-                    @tables << row.values_at('relname').first
+            if @opts[:table]
+                @tables << @opts[:table]
+            else
+                @conn.exec( "select relname from pg_stat_user_tables WHERE schemaname='public'" ) do |result|
+                    result.each do |row|
+                        @tables << row.values_at('relname').first
+                    end
                 end
             end
         end
@@ -79,24 +90,29 @@ module PgNiceCluster
 
         def find_primary_index(table)
             primary_index = nil
-            sql = <<-SQL
-                SELECT               
-                  i.relname
-                FROM pg_index, pg_class i, pg_class t, pg_attribute 
-                WHERE 
-                  t.oid = '#{table}'::regclass AND
-                  indrelid = t.oid AND
-                  pg_attribute.attrelid = t.oid AND 
-                  pg_attribute.attnum = any(pg_index.indkey)
-                  AND indisprimary
-                  AND i.oid = pg_index.indexrelid;
-            SQL
 
-            @conn.exec(sql) do |result|
-                result.each do |row|
-                    primary_index = result.first['relname']
-                end
-            end 
+            if @opts[:index]
+                primary_index = @opts[:index]
+            else
+                sql = <<-SQL
+                    SELECT               
+                      i.relname
+                    FROM pg_index, pg_class i, pg_class t, pg_attribute 
+                    WHERE 
+                      t.oid = '#{table}'::regclass AND
+                      indrelid = t.oid AND
+                      pg_attribute.attrelid = t.oid AND 
+                      pg_attribute.attnum = any(pg_index.indkey)
+                      AND indisprimary
+                      AND i.oid = pg_index.indexrelid;
+                SQL
+
+                @conn.exec(sql) do |result|
+                    result.each do |row|
+                        primary_index = result.first['relname']
+                    end
+                end 
+            end
             primary_index
         end
 
