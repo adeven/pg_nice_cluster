@@ -19,7 +19,7 @@ module PgNiceCluster
             end
             Trollop::die :db, "database name must be given" if @opts[:db] == nil
 
-            @conn = PG.connect( dbname: opts[:db], host: opts[:host], user: opts[:user], password: opts[:password] )
+            @conn = PG.connect( dbname: opts[:db], host: opts[:host], user: opts[:user], password: opts[:password], connect_timeout: 7200 )
             puts "Connected to Database #{opts[:db]} on #{opts[:host]} as user #{opts[:user]}"
 
             @lower_limit = @opts[:minsize] * 1024 * 1024
@@ -135,25 +135,25 @@ module PgNiceCluster
         end
 
         def find_triggers(table)
-            triggers = []
+            triggers = {}
+
             conn.exec( "select * from information_schema.triggers where event_object_table = '#{table}'" ) do |result|
                 result.each do |row|
-                    trigger = [
-                        "CREATE TRIGGER",
-                        row.values_at('trigger_name').first,
-                        row.values_at('action_timing').first,
-                        row.values_at('event_manipulation').first,
-                        "ON",
-                        table,
-                        "FOR EACH",
-                        row.values_at('action_orientation').first,
-                        row.values_at('action_statement').first,
-                        ";"
-                    ]
-                    triggers << trigger.join(" ")
+                    if triggers[row.values_at('trigger_name').first]
+                        triggers[row.values_at('trigger_name').first][1] = triggers[row.values_at('trigger_name').first][1] + 
+                                                                                    " OR " +
+                                                                                    row.values_at('event_manipulation').first
+                    else
+                        triggers[row.values_at('trigger_name').first] = [
+                            row.values_at('action_timing').first,
+                            row.values_at('event_manipulation').first,
+                            row.values_at('action_orientation').first,
+                            row.values_at('action_statement').first
+                        ]
+                    end
                 end
             end
-            triggers
+            triggers.map{|k,v| [ "CREATE TRIGGER", k, v[0..1], "ON", table, "FOR EACH", v[2..3], ";"].join(" ")}
         end
 
         def generate_sql(table, indexes, cluster_index, triggers)   
