@@ -12,8 +12,8 @@ module PgNiceCluster
                 opt :user, "user name", :type => :string, :default => "postgres"
                 opt :pass, "password", :type => :string
                 opt :host, "host name", :type => :string, :default => "localhost"
-                opt :tmp_prefix, "prefix for the temporary tables and indexes (default 'cluster_')", :type => :string, :default => "cluster"
-                opt :min_size, "cut off size for small tables in mb", :default => 100
+                opt :prefix, "prefix for the temporary tables and indexes (default 'cluster_')", :type => :string, :default => "cluster"
+                opt :minsize, "cut off size for small tables in mb", :default => 100
                 opt :table, "table name if only one table should be clustered", :type => :string
                 opt :index, "index to cluster on when using single table (otherwise ignored)", :type => :string
             end
@@ -22,7 +22,7 @@ module PgNiceCluster
             @conn = PG.connect( dbname: opts[:db], host: opts[:host], user: opts[:user], password: opts[:password] )
             puts "Connected to Database #{opts[:db]} on #{opts[:host]} as user #{opts[:user]}"
 
-            @lower_limit = @opts[:min_size] * 1024 * 1024
+            @lower_limit = @opts[:minsize] * 1024 * 1024
         end
 
         def self.run!
@@ -37,7 +37,7 @@ module PgNiceCluster
             
             if o.tables.size == 0
                 "nothing todo: exiting..."
-                break
+                return false
             end
 
             o.cluster_tables
@@ -157,7 +157,7 @@ module PgNiceCluster
         end
 
         def generate_sql(table, indexes, cluster_index, triggers)   
-            prefix = opts[:tmp_prefix]
+            prefix = opts[:prefix]
             sql = []
             sql << "BEGIN;"
             sql << "LOCK TABLE #{table} IN EXCLUSIVE MODE;"
