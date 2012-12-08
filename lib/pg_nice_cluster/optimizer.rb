@@ -3,7 +3,8 @@ require 'trollop'
 
 module PgNiceCluster
     class Optimizer
-        
+
+
         attr_accessor :tables, :conn, :opts, :total_size, :lower_limit
 
         def initialize
@@ -89,14 +90,14 @@ module PgNiceCluster
         end
 
         def find_primary_index(table)
-            primary_index = nil
+            primary_index = {}
 
             if @opts[:index]
                 primary_index = @opts[:index]
             else
                 sql = <<-SQL
                     SELECT               
-                      i.relname
+                      i.relname, attname
                     FROM pg_index, pg_class i, pg_class t, pg_attribute 
                     WHERE 
                       t.oid = '#{table}'::regclass AND
@@ -109,7 +110,7 @@ module PgNiceCluster
 
                 @conn.exec(sql) do |result|
                     result.each do |row|
-                        primary_index = result.first['relname']
+                        primary_index[result.first['relname']] = result.first['attname']
                     end
                 end 
             end
@@ -156,7 +157,7 @@ module PgNiceCluster
             triggers.map{|k,v| [ "CREATE TRIGGER", k, v[0..1], "ON", table, "FOR EACH", v[2..3], ";"].join(" ")}
         end
 
-        def generate_sql(table, indexes, cluster_index, triggers)   
+        def generate_sql(table, primary_index, indexes, cluster_index, triggers)   
             prefix = opts[:prefix]
             sql = []
             sql << "BEGIN;"
@@ -164,6 +165,9 @@ module PgNiceCluster
             sql << "CREATE TABLE #{prefix}_#{table} AS TABLE #{table};"
             indexes.each do |idx_name, command|
                 sql << command.gsub(" #{idx_name} ", " #{prefix}_#{idx_name} ").gsub("ON #{table} ", "ON #{prefix}_#{table} ") + ";"
+            end
+            if primary_index.size > 0
+                sql << "ALTER TABLE #{prefix}_#{table} ADD PRIMARY KEY (#{primary_index.values.first});"
             end
             sql << "CLUSTER #{prefix}_#{table} USING #{prefix}_#{cluster_index};"
             sql << "DROP TABLE #{table};" 
@@ -175,6 +179,7 @@ module PgNiceCluster
                 sql << trigger
             end
             sql << "COMMIT;"
+            sql << "ANALYZE #{table};"
             sql.join("\n")
         end
 
@@ -184,6 +189,7 @@ module PgNiceCluster
 
                 puts "fetching indexes..."
                 indexes = find_indexes(table)
+                primary_index = {}
                 cluster_index = nil
 
                 if indexes.size == 0
@@ -193,10 +199,12 @@ module PgNiceCluster
                     puts "found #{indexes.size} indexes..."
                 end
 
-                cluster_index = find_primary_index(table)
+                primary_index = find_primary_index(table)
 
-                if cluster_index
+                if primary_index.size > 0
                     puts "found primary index: using for clustering..."
+                    cluster_index = primary_index.keys.first
+                    indexes.delete(primary_index.keys.first)
                 else 
                     puts "no primary index found: searching for most used btree index"
                 end
@@ -214,7 +222,7 @@ module PgNiceCluster
 
                 puts "start to cluster #{table} using #{cluster_index}"
                 
-                sql = generate_sql(table, indexes, cluster_index, triggers)
+                sql = generate_sql(table, primary_index, indexes, cluster_index, triggers)
 
                 @conn.exec(sql)
                 #puts sql
