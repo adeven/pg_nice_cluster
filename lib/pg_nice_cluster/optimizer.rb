@@ -172,6 +172,11 @@ module PgNiceCluster
             sql << "CLUSTER #{prefix}_#{table} USING #{prefix}_#{cluster_index};"
             sql << "DROP TABLE #{table};" 
             sql << "ALTER TABLE #{prefix}_#{table} RENAME TO #{table};"
+
+            if primary_index.size > 0
+                sql << "ALTER INDEX #{prefix}_#{primary_index.keys.first} RENAME TO #{primary_index.keys.first};"
+            end
+
             indexes.each do |idx_name, command|
                 sql << "ALTER INDEX #{prefix}_#{idx_name} RENAME TO #{idx_name};"
             end
