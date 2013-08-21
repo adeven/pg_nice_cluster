@@ -162,7 +162,8 @@ module PgNiceCluster
             sql = []
             sql << "BEGIN;"
             sql << "LOCK TABLE #{table} IN EXCLUSIVE MODE;"
-            sql << "CREATE TABLE #{prefix}_#{table} AS TABLE #{table};"
+            sql << "CREATE TABLE #{prefix}_#{table} (LIKE #{table} INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING COMMENTS);"
+            sql << "INSERT INTO #{prefix}_#{table} SELECT * FROM #{table};"
             indexes.each do |idx_name, command|
                 sql << command.gsub(" #{idx_name} ", " #{prefix}_#{idx_name} ").gsub("ON #{table} ", "ON #{prefix}_#{table} ") + ";"
             end
