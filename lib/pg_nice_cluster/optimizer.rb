@@ -35,7 +35,7 @@ module PgNiceCluster
             o.filter_tables_with_lower_limit_and_update_total_size
             puts "#{o.tables.size} of them are bigger than #{o.lower_limit/(1024*1024)} MB including indexes..."
             puts "The Database has a Total Size of #{o.total_size/(1024*1024)} MB..."
-            
+
             if o.tables.size == 0
                 "nothing todo: exiting..."
                 return false
@@ -96,13 +96,13 @@ module PgNiceCluster
                 primary_index = @opts[:index]
             else
                 sql = <<-SQL
-                    SELECT               
+                    SELECT
                       i.relname, attname
-                    FROM pg_index, pg_class i, pg_class t, pg_attribute 
-                    WHERE 
+                    FROM pg_index, pg_class i, pg_class t, pg_attribute
+                    WHERE
                       t.oid = '#{table}'::regclass AND
                       indrelid = t.oid AND
-                      pg_attribute.attrelid = t.oid AND 
+                      pg_attribute.attrelid = t.oid AND
                       pg_attribute.attnum = any(pg_index.indkey)
                       AND indisprimary
                       AND i.oid = pg_index.indexrelid;
@@ -112,7 +112,7 @@ module PgNiceCluster
                     result.each do |row|
                         primary_index[result.first['relname']] = result.first['attname']
                     end
-                end 
+                end
             end
             primary_index
         end
@@ -141,7 +141,7 @@ module PgNiceCluster
             conn.exec( "select * from information_schema.triggers where event_object_table = '#{table}'" ) do |result|
                 result.each do |row|
                     if triggers[row.values_at('trigger_name').first]
-                        triggers[row.values_at('trigger_name').first][1] = triggers[row.values_at('trigger_name').first][1] + 
+                        triggers[row.values_at('trigger_name').first][1] = triggers[row.values_at('trigger_name').first][1] +
                                                                                     " OR " +
                                                                                     row.values_at('event_manipulation').first
                     else
@@ -157,7 +157,7 @@ module PgNiceCluster
             triggers.map{|k,v| [ "CREATE TRIGGER", k, v[0..1], "ON", table, "FOR EACH", v[2..3], ";"].join(" ")}
         end
 
-        def generate_sql(table, primary_index, indexes, cluster_index, triggers)   
+        def generate_sql(table, primary_index, indexes, cluster_index, triggers)
             prefix = opts[:prefix]
             sql = []
             sql << "BEGIN;"
@@ -170,7 +170,7 @@ module PgNiceCluster
                 sql << "ALTER TABLE #{prefix}_#{table} ADD PRIMARY KEY (#{primary_index.values.first});"
             end
             sql << "CLUSTER #{prefix}_#{table} USING #{prefix}_#{cluster_index};"
-            sql << "DROP TABLE #{table};" 
+            sql << "DROP TABLE #{table};"
             sql << "ALTER TABLE #{prefix}_#{table} RENAME TO #{table};"
 
             if primary_index.size > 0
@@ -210,7 +210,7 @@ module PgNiceCluster
                     puts "found primary index: using for clustering..."
                     cluster_index = primary_index.keys.first
                     indexes.delete(primary_index.keys.first)
-                else 
+                else
                     puts "no primary index found: searching for most used btree index"
                 end
 
@@ -226,13 +226,13 @@ module PgNiceCluster
                 triggers = find_triggers(table)
 
                 puts "start to cluster #{table} using #{cluster_index}"
-                
+
                 sql = generate_sql(table, primary_index, indexes, cluster_index, triggers)
 
                 @conn.exec(sql)
                 #puts sql
-                
-                puts "Successfully clustered #{table}!"    
+
+                puts "Successfully clustered #{table}!"
             end
         end
     end
