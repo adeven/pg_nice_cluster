@@ -171,7 +171,7 @@ module PgNiceCluster
                 sql << "ALTER TABLE #{prefix}_#{table} ADD PRIMARY KEY (#{primary_index.values.first});"
             end
             sql << "CLUSTER #{prefix}_#{table} USING #{prefix}_#{cluster_index};"
-            sql << "DROP TABLE #{table};"
+            sql << "DROP TABLE #{table} CASCADE;"
             sql << "ALTER TABLE #{prefix}_#{table} RENAME TO #{table};"
 
             if primary_index.size > 0
@@ -229,6 +229,9 @@ module PgNiceCluster
                 puts "start to cluster #{table} using #{cluster_index}"
 
                 sql = generate_sql(table, primary_index, indexes, cluster_index, triggers)
+
+                puts 'Executing query:'
+                puts sql
 
                 @conn.exec(sql)
                 #puts sql
